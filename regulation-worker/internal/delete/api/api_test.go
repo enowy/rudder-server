@@ -2,7 +2,6 @@ package api_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -32,8 +31,7 @@ func TestDelete(t *testing.T) {
 		destConfig           map[string]interface{}
 		destName             string
 		respCode             int
-		respBodyStatus       model.JobStatus
-		respBodyErr          error
+		respBody             string
 		expectedDeleteStatus model.JobStatus
 		expectedPayload      string
 	}{
@@ -69,7 +67,7 @@ func TestDelete(t *testing.T) {
 			},
 			destName:             "amplitude",
 			respCode:             200,
-			respBodyStatus:       "complete",
+			respBody:             `[{"status": "complete"}]`,
 			expectedDeleteStatus: model.JobStatusComplete,
 			expectedPayload:      `[{"jobId":"1","destType":"amplitude","config":{"accessKey":"xyz","accessKeyID":"abc","bucketName":"regulation-test-data","enableSSE":false,"prefix":"reg-original"},"userAttributes":[{"userId":"Jermaine1473336609491897794707338","phone":"6463633841","email":"dorowane8n285680461479465450293436@gmail.com"},{"userId":"Mercie8221821544021583104106123","email":"dshirilad8536019424659691213279980@gmail.com"},{"userId":"Claiborn443446989226249191822329","phone":"8782905113"}]}]`,
 		},
@@ -77,7 +75,7 @@ func TestDelete(t *testing.T) {
 			name:                 "test deleter API client with expected status failed: error returned 429",
 			destName:             "amplitude",
 			respCode:             429,
-			respBodyStatus:       "failed",
+			respBody:             `[{"status": "failed"}]`,
 			expectedDeleteStatus: model.JobStatusFailed,
 			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
 		},
@@ -85,7 +83,7 @@ func TestDelete(t *testing.T) {
 			name:                 "test deleter API client with expected status failed-error returned 408",
 			destName:             "amplitude",
 			respCode:             408,
-			respBodyStatus:       "failed",
+			respBody:             `[{"status": "failed"}]`,
 			expectedDeleteStatus: model.JobStatusFailed,
 			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
 		},
@@ -93,7 +91,7 @@ func TestDelete(t *testing.T) {
 			name:                 "test deleter API client with expected status failed: error returned 504",
 			destName:             "amplitude",
 			respCode:             504,
-			respBodyStatus:       "failed",
+			respBody:             `[{"status": "failed"}]`,
 			expectedDeleteStatus: model.JobStatusFailed,
 			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
 		},
@@ -101,7 +99,7 @@ func TestDelete(t *testing.T) {
 			name:                 "test deleter API client with expected status failed: error returned 400",
 			destName:             "amplitude",
 			respCode:             400,
-			respBodyStatus:       "failed",
+			respBody:             `[{"status": "failed"}]`,
 			expectedDeleteStatus: model.JobStatusAborted,
 			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
 		},
@@ -109,7 +107,7 @@ func TestDelete(t *testing.T) {
 			name:                 "test deleter API client with expected status failed: error returned 401",
 			destName:             "amplitude",
 			respCode:             401,
-			respBodyStatus:       "failed",
+			respBody:             `[{"status": "failed"}]`,
 			expectedDeleteStatus: model.JobStatusAborted,
 			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
 		},
@@ -117,8 +115,16 @@ func TestDelete(t *testing.T) {
 			name:                 "test deleter API client with expected status failed: error returned 405",
 			destName:             "amplitude",
 			respCode:             405,
-			respBodyStatus:       "failed",
+			respBody:             `[{"status": "failed"}]`,
 			expectedDeleteStatus: model.JobStatusNotSupported,
+			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
+		},
+		{
+			name:                 "return 400",
+			destName:             "amplitude",
+			respCode:             400,
+			respBody:             `[{"statusCode":400,"error":"api key/secret for deletion not present"}]`,
+			expectedDeleteStatus: model.JobStatusAborted,
 			expectedPayload:      `[{"jobId":"0","destType":"amplitude","config":null,"userAttributes":[]}]`,
 		},
 	}
@@ -127,6 +133,7 @@ func TestDelete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d := deleteAPI{
 				respStatusCode: tt.respCode,
+				respBody:       tt.respBody,
 			}
 			ctx := context.Background()
 			svr := httptest.NewServer(d.handler())
@@ -147,8 +154,7 @@ func TestDelete(t *testing.T) {
 type deleteAPI struct {
 	payload        string
 	respStatusCode int
-	respBodyStatus model.JobStatus
-	respBodyErr    error
+	respBody       string
 }
 
 func (d *deleteAPI) deleteMockServer(w http.ResponseWriter, r *http.Request) {
@@ -163,17 +169,7 @@ func (d *deleteAPI) deleteMockServer(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(d.respStatusCode)
 
-	var resp api.JobRespSchema
-	resp.Status = string(d.respBodyStatus)
-	resp.Error = d.respBodyErr
-
-	body, err := json.Marshal([]api.JobRespSchema{resp})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = w.Write(body)
+	_, err = w.Write([]byte(d.respBody))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
