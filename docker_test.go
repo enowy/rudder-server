@@ -15,8 +15,8 @@ import (
 	"flag"
 	"fmt"
 	redigo "github.com/gomodule/redigo/redis"
-	"github.com/rudderlabs/rudder-server/config"
-	bq "github.com/rudderlabs/rudder-server/warehouse/bigquery"
+	// "github.com/rudderlabs/rudder-server/config"
+	// bq "github.com/rudderlabs/rudder-server/warehouse/bigquery"
 	"github.com/rudderlabs/rudder-server/warehouse/client"
 	"github.com/tidwall/gjson"
 	"io"
@@ -64,6 +64,7 @@ var (
 	RedisContainer               *destination.RedisResource
 	PostgresContainer            *destination.PostgresResource
 	TransformerContainer         *destination.TransformerResource
+	ReportingServiceContainer    *destination.ReportingServiceResource
 	MINIOContainer               *destination.MINIOResource
 	EventID                      string
 	VersionID                    string
@@ -353,6 +354,19 @@ func run(m *testing.M) (int, error) {
 		time.Minute,
 		time.Second,
 	)
+	
+	ReportingServiceContainer, err = destination.SetupReportingService(pool, cleanup)
+	if err != nil {
+		return 0, fmt.Errorf("setup Reporting Service Container : %w", err)
+	}
+
+	waitUntilReady(
+		context.Background(),
+		fmt.Sprintf("%s/health", ReportingServiceContainer.ReportingserviceURL),
+		time.Minute,
+		time.Second,
+	)
+
 
 	MINIOContainer, err = destination.SetupMINIO(pool, cleanup)
 	if err != nil {
@@ -367,15 +381,15 @@ func run(m *testing.M) (int, error) {
 	os.Setenv("WAREHOUSE_JOBS_DB_PORT", PostgresContainer.Port)
 	os.Setenv("DEST_TRANSFORM_URL", TransformerContainer.TransformURL)
 
-	wht.InitWHConfig()
+	// wht.InitWHConfig()
 
-	defer wht.SetWHPostgresDestination(pool)()
-	defer wht.SetWHClickHouseDestination(pool)()
-	defer wht.SetWHClickHouseClusterDestination(pool)()
-	defer wht.SetWHMssqlDestination(pool)()
-	defer wht.SetWHBigQueryDestination()()
+	// defer wht.SetWHPostgresDestination(pool)()
+	// defer wht.SetWHClickHouseDestination(pool)()
+	// defer wht.SetWHClickHouseClusterDestination(pool)()
+	// defer wht.SetWHMssqlDestination(pool)()
+	// defer wht.SetWHBigQueryDestination()()
 
-	AddWHSpecificSqlFunctionsToJobsDb()
+	// AddWHSpecificSqlFunctionsToJobsDb()
 
 	httpPortInt, err := freeport.GetFreePort()
 	if err != nil {
@@ -390,6 +404,9 @@ func run(m *testing.M) (int, error) {
 
 	os.Setenv("RSERVER_GATEWAY_ADMIN_WEB_PORT", strconv.Itoa(httpAdminPort))
 	os.Setenv("RSERVER_ENABLE_STATS", "false")
+	fmt.Println("ReportingServiceContainer.ReportingserviceURL: ",ReportingServiceContainer.ReportingserviceURL)
+	os.Setenv("RSERVER_REPORTING_URL", ReportingServiceContainer.ReportingserviceURL)
+
 
 	webhook = NewWebhook()
 	defer webhook.Close()
@@ -411,14 +428,14 @@ func run(m *testing.M) (int, error) {
 		"minioEndpoint":                       MINIOContainer.MinioEndpoint,
 		"minioBucketName":                     MINIOContainer.MinioBucketName,
 		"kafkaPort":                           KafkaContainer.Port,
-		"postgresEventWriteKey":               wht.Test.PGTest.WriteKey,
-		"clickHouseEventWriteKey":             wht.Test.CHTest.WriteKey,
-		"clickHouseClusterEventWriteKey":      wht.Test.CHClusterTest.WriteKey,
-		"mssqlEventWriteKey":                  wht.Test.MSSQLTest.WriteKey,
-		"rwhPostgresDestinationPort":          wht.Test.PGTest.Credentials.Port,
-		"rwhClickHouseDestinationPort":        wht.Test.CHTest.Credentials.Port,
-		"rwhClickHouseClusterDestinationPort": wht.Test.CHClusterTest.GetResource().Credentials.Port,
-		"rwhMSSqlDestinationPort":             wht.Test.MSSQLTest.Credentials.Port,
+		// "postgresEventWriteKey":               wht.Test.PGTest.WriteKey,
+		// "clickHouseEventWriteKey":             wht.Test.CHTest.WriteKey,
+		// "clickHouseClusterEventWriteKey":      wht.Test.CHClusterTest.WriteKey,
+		// "mssqlEventWriteKey":                  wht.Test.MSSQLTest.WriteKey,
+		// "rwhPostgresDestinationPort":          wht.Test.PGTest.Credentials.Port,
+		// "rwhClickHouseDestinationPort":        wht.Test.CHTest.Credentials.Port,
+		// "rwhClickHouseClusterDestinationPort": wht.Test.CHClusterTest.GetResource().Credentials.Port,
+		// "rwhMSSqlDestinationPort":             wht.Test.MSSQLTest.Credentials.Port,
 	}
 	if runBigQueryTest && wht.Test.BQTest != nil {
 
@@ -933,202 +950,217 @@ func AddWHSpecificSqlFunctionsToJobsDb() {
 	}
 }
 
+// Verify Event in Reporting Service
+func TestReportingService(t *testing.T) {
+	if _, err := os.Stat("enterprise/reporting/reporting.go"); err == nil {
+		fmt.Printf("File exists\n")
+	} else {
+		fmt.Printf("File does not exist\n")
+		t.Skip()
+	}
+	url := fmt.Sprintf("%s/totalEvents?sourceId=('%s')&from=2021-09-16&to=2022-12-09", ReportingServiceContainer.ReportingserviceURL, "xxxyyyzzEaEurW247ad9WYZLUyk")
+	fmt.Println("Reporting service total events url: ", url)
+	require.Eventually(t, func() bool {
+		method := "GET"
+		client := &http.Client{}
+		req, err := http.NewRequest(method, url, nil)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization",
+			fmt.Sprintf("Basic %s", b64.StdEncoding.EncodeToString(
+				[]byte(fmt.Sprintf("%s:", writeKey)),
+			)),
+		)
+
+		res, err := client.Do(req)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer res.Body.Close()
+
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return strings.Contains(string(body), "12")
+	}, 3*time.Minute, 10*time.Millisecond)
+}
+
+
 //Verify Event in WareHouse Postgres
-func TestWHPostgresDestination(t *testing.T) {
-	pgTest := wht.Test.PGTest
-
-	whDestTest := &wht.WareHouseDestinationTest{
-		Client: &client.Client{
-			SQL:  pgTest.DB,
-			Type: client.SQLClient,
-		},
-		EventsCountMap:         pgTest.EventsMap,
-		WriteKey:               pgTest.WriteKey,
-		UserId:                 "userId_postgres",
-		Schema:                 "postgres_wh_integration",
-		TableTestQueryFreqInMS: pgTest.TableTestQueryFreqInMS,
-	}
-	sendWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-
-	whDestTest.UserId = "userId_postgres_1"
-	sendUpdatedWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-}
-
-//Verify Event in WareHouse ClickHouse
-func TestWHClickHouseDestination(t *testing.T) {
-	chTest := wht.Test.CHTest
-
-	whDestTest := &wht.WareHouseDestinationTest{
-		Client: &client.Client{
-			SQL:  chTest.DB,
-			Type: client.SQLClient,
-		},
-		EventsCountMap:         chTest.EventsMap,
-		WriteKey:               chTest.WriteKey,
-		UserId:                 "userId_clickhouse",
-		Schema:                 "rudderdb",
-		TableTestQueryFreqInMS: chTest.TableTestQueryFreqInMS,
-	}
-	sendWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-
-	whDestTest.UserId = "userId_clickhouse_1"
-	sendUpdatedWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-}
-
-//Verify Event in WareHouse ClickHouse Cluster
-func TestWHClickHouseClusterDestination(t *testing.T) {
-	chClusterTest := wht.Test.CHClusterTest
-
-	whDestTest := &wht.WareHouseDestinationTest{
-		Client: &client.Client{
-			SQL:  chClusterTest.GetResource().DB,
-			Type: client.SQLClient,
-		},
-		EventsCountMap:         chClusterTest.EventsMap,
-		WriteKey:               chClusterTest.WriteKey,
-		UserId:                 "userId_clickhouse_cluster",
-		Schema:                 "rudderdb",
-		TableTestQueryFreqInMS: chClusterTest.TableTestQueryFreqInMS,
-	}
-	sendWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-
-	initWHClickHouseClusterModeSetup(t)
-
-	whDestTest.UserId = "userId_clickhouse_cluster_1"
-	sendUpdatedWHEvents(whDestTest)
-
-	// Update events count Map
-	// This is required as because of the cluster mode setup and distributed view, events are getting duplicated.
-	whDestTest.EventsCountMap = wht.EventsCountMap{
-		"identifies":    2,
-		"users":         2,
-		"tracks":        2,
-		"product_track": 2,
-		"pages":         2,
-		"screens":       2,
-		"aliases":       2,
-		"groups":        2,
-		"gateway":       6,
-		"batchRT":       8,
-	}
-	whDestinationTest(t, whDestTest)
-}
-
-func TestWHBigQuery(t *testing.T) {
-	if runBigQueryTest == false {
-		t.Skip("Big query integration skipped. use -bigqueryintegration to add this test ")
-
-	}
-	if wht.Test.BQTest == nil {
-		fmt.Println("Error in ENV variable BIGQUERY_INTEGRATION_TEST_USER_CRED")
-		t.FailNow()
-	}
-	//Disabling big query dedup
-	config.SetBool("Warehouse.bigquery.isDedupEnabled", false)
-	bq.Init()
-	bqTest := wht.Test.BQTest
-	randomness := strings.ReplaceAll(uuid.Must(uuid.NewV4()).String(), "-", "")
-
-	whDestTest := &wht.WareHouseDestinationTest{
-		Client: &client.Client{
-			BQ:   bqTest.DB,
-			Type: client.BQClient,
-		},
-		EventsCountMap:         bqTest.EventsMap,
-		WriteKey:               bqTest.WriteKey,
-		UserId:                 fmt.Sprintf("userId_bq_%s", randomness),
-		Schema:                 "rudderstack_sample_http_source",
-		BQContext:              bqTest.Context,
-		Tables:                 bqTest.Tables,
-		PrimaryKeys:            bqTest.PrimaryKeys,
-		TableTestQueryFreqInMS: bqTest.TableTestQueryFreqInMS,
-	}
-
-	whDestTest.MessageId = uuid.Must(uuid.NewV4()).String()
-
-	whDestTest.EventsCountMap = wht.EventsCountMap{
-		"identifies": 2,
-		"tracks":     2,
-		"pages":      2,
-		"screens":    2,
-		"aliases":    2,
-		"groups":     2,
-	}
-	sendWHEvents(whDestTest)
-
-	whDestTest.EventsCountMap = wht.EventsCountMap{
-		"identifies":    2,
-		"users":         1,
-		"tracks":        2,
-		"product_track": 2,
-		"pages":         2,
-		"screens":       2,
-		"aliases":       2,
-		"_groups":       2,
-		"gateway":       12,
-		"batchRT":       16,
-	}
-
-	whDestinationTest(t, whDestTest)
-	//Enabling big query dedup
-	config.SetBool("Warehouse.bigquery.isDedupEnabled", true)
-	bq.Init()
-
-	whDestTest.EventsCountMap = wht.EventsCountMap{
-		"identifies": 2,
-		"tracks":     2,
-		"pages":      2,
-		"screens":    2,
-		"aliases":    2,
-		"groups":     2,
-	}
-
-	sendWHEvents(whDestTest)
-
-	whDestTest.EventsCountMap = wht.EventsCountMap{
-		"identifies":    2,
-		"users":         1,
-		"tracks":        2,
-		"product_track": 2,
-		"pages":         2,
-		"screens":       2,
-		"aliases":       2,
-		"_groups":       2,
-		"gateway":       24,
-		"batchRT":       32,
-	}
-
-	whDestinationTest(t, whDestTest)
-
-}
-
-//Verify Event in WareHouse MSSQL
-func TestWHMssqlDestination(t *testing.T) {
-	MssqlTest := wht.Test.MSSQLTest
-
-	whDestTest := &wht.WareHouseDestinationTest{
-		Client: &client.Client{
-			SQL:  MssqlTest.DB,
-			Type: client.SQLClient,
-		},
-		EventsCountMap:         MssqlTest.EventsMap,
-		WriteKey:               MssqlTest.WriteKey,
-		UserId:                 "userId_mssql",
-		Schema:                 "mssql_wh_integration",
-		TableTestQueryFreqInMS: MssqlTest.TableTestQueryFreqInMS,
-	}
-	sendWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-
-	whDestTest.UserId = "userId_mssql_1"
-	sendUpdatedWHEvents(whDestTest)
-	whDestinationTest(t, whDestTest)
-}
+// func TestWHPostgresDestination(t *testing.T) {
+// 	pgTest := wht.Test.PGTest
+// 	whDestTest := &wht.WareHouseDestinationTest{
+// 		Client: &client.Client{
+// 			SQL:  pgTest.DB,
+// 			Type: client.SQLClient,
+// 		},
+// 		EventsCountMap:         pgTest.EventsMap,
+// 		WriteKey:               pgTest.WriteKey,
+// 		UserId:                 "userId_postgres",
+// 		Schema:                 "postgres_wh_integration",
+// 		TableTestQueryFreqInMS: pgTest.TableTestQueryFreqInMS,
+// 	}
+// 	sendWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// 	whDestTest.UserId = "userId_postgres_1"
+// 	sendUpdatedWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// }
+// //Verify Event in WareHouse ClickHouse
+// func TestWHClickHouseDestination(t *testing.T) {
+// 	chTest := wht.Test.CHTest
+// 	whDestTest := &wht.WareHouseDestinationTest{
+// 		Client: &client.Client{
+// 			SQL:  chTest.DB,
+// 			Type: client.SQLClient,
+// 		},
+// 		EventsCountMap:         chTest.EventsMap,
+// 		WriteKey:               chTest.WriteKey,
+// 		UserId:                 "userId_clickhouse",
+// 		Schema:                 "rudderdb",
+// 		TableTestQueryFreqInMS: chTest.TableTestQueryFreqInMS,
+// 	}
+// 	sendWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// 	whDestTest.UserId = "userId_clickhouse_1"
+// 	sendUpdatedWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// }
+// //Verify Event in WareHouse ClickHouse Cluster
+// func TestWHClickHouseClusterDestination(t *testing.T) {
+// 	chClusterTest := wht.Test.CHClusterTest
+// 	whDestTest := &wht.WareHouseDestinationTest{
+// 		Client: &client.Client{
+// 			SQL:  chClusterTest.GetResource().DB,
+// 			Type: client.SQLClient,
+// 		},
+// 		EventsCountMap:         chClusterTest.EventsMap,
+// 		WriteKey:               chClusterTest.WriteKey,
+// 		UserId:                 "userId_clickhouse_cluster",
+// 		Schema:                 "rudderdb",
+// 		TableTestQueryFreqInMS: chClusterTest.TableTestQueryFreqInMS,
+// 	}
+// 	sendWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// 	initWHClickHouseClusterModeSetup(t)
+// 	whDestTest.UserId = "userId_clickhouse_cluster_1"
+// 	sendUpdatedWHEvents(whDestTest)
+// 	// Update events count Map
+// 	// This is required as because of the cluster mode setup and distributed view, events are getting duplicated.
+// 	whDestTest.EventsCountMap = wht.EventsCountMap{
+// 		"identifies":    2,
+// 		"users":         2,
+// 		"tracks":        2,
+// 		"product_track": 2,
+// 		"pages":         2,
+// 		"screens":       2,
+// 		"aliases":       2,
+// 		"groups":        2,
+// 		"gateway":       6,
+// 		"batchRT":       8,
+// 	}
+// 	whDestinationTest(t, whDestTest)
+// }
+// func TestWHBigQuery(t *testing.T) {
+// 	if runBigQueryTest == false {
+// 		t.Skip("Big query integration skipped. use -bigqueryintegration to add this test ")
+// 	}
+// 	if wht.Test.BQTest == nil {
+// 		fmt.Println("Error in ENV variable BIGQUERY_INTEGRATION_TEST_USER_CRED")
+// 		t.FailNow()
+// 	}
+// 	//Disabling big query dedup
+// 	config.SetBool("Warehouse.bigquery.isDedupEnabled", false)
+// 	bq.Init()
+// 	bqTest := wht.Test.BQTest
+// 	randomness := strings.ReplaceAll(uuid.Must(uuid.NewV4()).String(), "-", "")
+// 	whDestTest := &wht.WareHouseDestinationTest{
+// 		Client: &client.Client{
+// 			BQ:   bqTest.DB,
+// 			Type: client.BQClient,
+// 		},
+// 		EventsCountMap:         bqTest.EventsMap,
+// 		WriteKey:               bqTest.WriteKey,
+// 		UserId:                 fmt.Sprintf("userId_bq_%s", randomness),
+// 		Schema:                 "rudderstack_sample_http_source",
+// 		BQContext:              bqTest.Context,
+// 		Tables:                 bqTest.Tables,
+// 		PrimaryKeys:            bqTest.PrimaryKeys,
+// 		TableTestQueryFreqInMS: bqTest.TableTestQueryFreqInMS,
+// 	}
+// 	whDestTest.MessageId = uuid.Must(uuid.NewV4()).String()
+// 	whDestTest.EventsCountMap = wht.EventsCountMap{
+// 		"identifies": 2,
+// 		"tracks":     2,
+// 		"pages":      2,
+// 		"screens":    2,
+// 		"aliases":    2,
+// 		"groups":     2,
+// 	}
+// 	sendWHEvents(whDestTest)
+// 	whDestTest.EventsCountMap = wht.EventsCountMap{
+// 		"identifies":    2,
+// 		"users":         1,
+// 		"tracks":        2,
+// 		"product_track": 2,
+// 		"pages":         2,
+// 		"screens":       2,
+// 		"aliases":       2,
+// 		"_groups":       2,
+// 		"gateway":       12,
+// 		"batchRT":       16,
+// 	}
+// 	whDestinationTest(t, whDestTest)
+// 	//Enabling big query dedup
+// 	config.SetBool("Warehouse.bigquery.isDedupEnabled", true)
+// 	bq.Init()
+// 	whDestTest.EventsCountMap = wht.EventsCountMap{
+// 		"identifies": 2,
+// 		"tracks":     2,
+// 		"pages":      2,
+// 		"screens":    2,
+// 		"aliases":    2,
+// 		"groups":     2,
+// 	}
+// 	sendWHEvents(whDestTest
+// 	whDestTest.EventsCountMap = wht.EventsCountMap{
+// 		"identifies":    2,
+// 		"users":         1,
+// 		"tracks":        2,
+// 		"product_track": 2,
+// 		"pages":         2,
+// 		"screens":       2,
+// 		"aliases":       2,
+// 		"_groups":       2,
+// 		"gateway":       24,
+// 		"batchRT":       32,
+// 	}
+// 	whDestinationTest(t, whDestTest)
+// }
+// //Verify Event in WareHouse MSSQL
+// func TestWHMssqlDestination(t *testing.T) {
+// 	MssqlTest := wht.Test.MSSQLTest
+// 	whDestTest := &wht.WareHouseDestinationTest{
+// 		Client: &client.Client{
+// 			SQL:  MssqlTest.DB,
+// 			Type: client.SQLClient,
+// 		},
+// 		EventsCountMap:         MssqlTest.EventsMap,
+// 		WriteKey:               MssqlTest.WriteKey,
+// 		UserId:                 "userId_mssql",
+// 		Schema:                 "mssql_wh_integration",
+// 		TableTestQueryFreqInMS: MssqlTest.TableTestQueryFreqInMS,
+// 	}
+// 	sendWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// 	whDestTest.UserId = "userId_mssql_1"
+// 	sendUpdatedWHEvents(whDestTest)
+// 	whDestinationTest(t, whDestTest)
+// }
 
 func getMessagId(wdt *wht.WareHouseDestinationTest) string {
 	if wdt.MessageId == "" {
