@@ -306,7 +306,7 @@ func (brt *HandleT) pollAsyncStatus(ctx context.Context) {
 						}
 						parameterFilters = append(parameterFilters, parameterFilter)
 					}
-					importingJob := brt.jobsDB.GetImportingList(
+					importingJob := brt.jobsDB.GetImporting(
 						jobsdb.GetQueryParamsT{
 							CustomValFilters: []string{brt.destType},
 							JobsLimit:        1,
@@ -352,7 +352,7 @@ func (brt *HandleT) pollAsyncStatus(ctx context.Context) {
 							abortedJobs := make([]*jobsdb.JobT, 0)
 							if uploadStatus {
 								var statusList []*jobsdb.JobStatusT
-								importingList := brt.jobsDB.GetImportingList(
+								importingList := brt.jobsDB.GetImporting(
 									jobsdb.GetQueryParamsT{
 										CustomValFilters: []string{brt.destType},
 										JobsLimit:        brt.maxEventsInABatch,
@@ -422,15 +422,18 @@ func (brt *HandleT) pollAsyncStatus(ctx context.Context) {
 											statusList = append(statusList, status)
 										}
 										brt.failedJobCount.Count(len(statusList))
-										txn := brt.jobsDB.BeginGlobalTransaction()
-										brt.jobsDB.AcquireUpdateJobStatusLocks()
-										err = brt.jobsDB.UpdateJobStatusInTxn(txn, statusList, []string{brt.destType}, parameterFilters)
+										err := brt.jobsDB.WithUpdateSafeTx(func(tx jobsdb.UpdateSafeTx) error {
+											err = brt.jobsDB.UpdateJobStatusInTx(tx, statusList, []string{brt.destType}, parameterFilters)
+											if err != nil {
+												brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
+												return err
+											}
+											return nil
+										})
 										if err != nil {
-											brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
 											panic(err)
 										}
-										brt.jobsDB.CommitTransaction(txn)
-										brt.jobsDB.ReleaseUpdateJobStatusLocks()
+
 										continue
 									}
 									for _, job := range importingList {
@@ -466,24 +469,25 @@ func (brt *HandleT) pollAsyncStatus(ctx context.Context) {
 								brt.successfulJobCount.Count(len(statusList) - len(abortedJobs))
 								brt.abortedJobCount.Count(len(abortedJobs))
 								if len(abortedJobs) > 0 {
-									err := brt.errorDB.Store(abortedJobs)
+									err := brt.errorDB.Append(abortedJobs)
 									if err != nil {
 										brt.logger.Errorf("Error occurred while storing %s jobs into ErrorDB. Panicking. Err: %v", brt.destType, err)
 										panic(err)
 									}
 								}
-								txn := brt.jobsDB.BeginGlobalTransaction()
-								brt.jobsDB.AcquireUpdateJobStatusLocks()
-								err = brt.jobsDB.UpdateJobStatusInTxn(txn, statusList, []string{brt.destType}, parameterFilters)
+								err := brt.jobsDB.WithUpdateSafeTx(func(tx jobsdb.UpdateSafeTx) error {
+									err = brt.jobsDB.UpdateJobStatusInTx(tx, statusList, []string{brt.destType}, parameterFilters)
+									if err != nil {
+										brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
+									}
+									return err
+								})
 								if err != nil {
-									brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
 									panic(err)
 								}
-								brt.jobsDB.CommitTransaction(txn)
-								brt.jobsDB.ReleaseUpdateJobStatusLocks()
 							} else if statusCode != 0 {
 								var statusList []*jobsdb.JobStatusT
-								importingList := brt.jobsDB.GetImportingList(
+								importingList := brt.jobsDB.GetImporting(
 									jobsdb.GetQueryParamsT{
 										CustomValFilters: []string{brt.destType},
 										JobsLimit:        brt.maxEventsInABatch,
@@ -524,21 +528,24 @@ func (brt *HandleT) pollAsyncStatus(ctx context.Context) {
 									brt.failedJobCount.Count(len(importingList))
 								}
 								if len(abortedJobs) > 0 {
-									err := brt.errorDB.Store(abortedJobs)
+									err := brt.errorDB.Append(abortedJobs)
 									if err != nil {
 										brt.logger.Errorf("Error occurred while storing %s jobs into ErrorDB. Panicking. Err: %v", brt.destType, err)
 										panic(err)
 									}
 								}
-								txn := brt.jobsDB.BeginGlobalTransaction()
-								brt.jobsDB.AcquireUpdateJobStatusLocks()
-								err = brt.jobsDB.UpdateJobStatusInTxn(txn, statusList, []string{brt.destType}, parameterFilters)
+
+								err := brt.jobsDB.WithUpdateSafeTx(func(tx jobsdb.UpdateSafeTx) error {
+									err = brt.jobsDB.UpdateJobStatusInTx(tx, statusList, []string{brt.destType}, parameterFilters)
+									if err != nil {
+										brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
+									}
+									return err
+								})
 								if err != nil {
-									brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
 									panic(err)
 								}
-								brt.jobsDB.CommitTransaction(txn)
-								brt.jobsDB.ReleaseUpdateJobStatusLocks()
+
 							} else {
 								continue
 							}
@@ -1256,11 +1263,11 @@ func (brt *HandleT) setJobStatus(batchJobs *BatchJobsT, isWarehouse bool, errOcc
 		}
 	}
 
-	//Store the aborted jobs to errorDB
+	//Append the aborted jobs to errorDB
 	if abortedEvents != nil {
-		err := brt.errorDB.Store(abortedEvents)
+		err := brt.errorDB.Append(abortedEvents)
 		if err != nil {
-			brt.logger.Errorf("[Batch Router] Store into proc error table failed with error: %v", err)
+			brt.logger.Errorf("[Batch Router] append into proc error table failed with error: %v", err)
 			brt.logger.Errorf("abortedEvents: %v", abortedEvents)
 			panic(err)
 		}
@@ -1293,24 +1300,24 @@ func (brt *HandleT) setJobStatus(batchJobs *BatchJobsT, isWarehouse bool, errOcc
 	//REPORTING - END
 
 	//Mark the status of the jobs
-	txn := brt.jobsDB.BeginGlobalTransaction()
-	brt.jobsDB.AcquireUpdateJobStatusLocks()
-	err = brt.jobsDB.UpdateJobStatusInTxn(txn, statusList, []string{brt.destType}, parameterFilters)
+	err = brt.jobsDB.WithUpdateSafeTx(func(tx jobsdb.UpdateSafeTx) error {
+		err = brt.jobsDB.UpdateJobStatusInTx(tx, statusList, []string{brt.destType}, parameterFilters)
+		if err != nil {
+			brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
+			return err
+		}
+		//Save msgids of aborted jobs
+		if len(jobRunIDAbortedEventsMap) > 0 {
+			router.GetFailedEventsManager().SaveFailedRecordIDs(jobRunIDAbortedEventsMap, tx.Tx())
+		}
+		if brt.reporting != nil && brt.reportingEnabled {
+			brt.reporting.Report(reportMetrics, tx.Tx())
+		}
+		return nil
+	})
 	if err != nil {
-		brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
 		panic(err)
 	}
-
-	//Save msgids of aborted jobs
-	if len(jobRunIDAbortedEventsMap) > 0 {
-		router.GetFailedEventsManager().SaveFailedRecordIDs(jobRunIDAbortedEventsMap, txn)
-	}
-	if brt.reporting != nil && brt.reportingEnabled {
-		brt.reporting.Report(reportMetrics, txn)
-	}
-	brt.jobsDB.CommitTransaction(txn)
-	brt.jobsDB.ReleaseUpdateJobStatusLocks()
-
 	sendDestStatusStats(batchJobs.BatchDestination, jobStateCounts, brt.destType, isWarehouse)
 }
 
@@ -1401,16 +1408,16 @@ func (brt *HandleT) setMultipleJobStatus(asyncOutput asyncdestinationmanager.Asy
 	}
 
 	//Mark the status of the jobs
-	txn := brt.jobsDB.BeginGlobalTransaction()
-	brt.jobsDB.AcquireUpdateJobStatusLocks()
-	err := brt.jobsDB.UpdateJobStatusInTxn(txn, statusList, []string{brt.destType}, parameterFilters)
+	err := brt.jobsDB.WithUpdateSafeTx(func(tx jobsdb.UpdateSafeTx) error {
+		err := brt.jobsDB.UpdateJobStatusInTx(tx, statusList, []string{brt.destType}, parameterFilters)
+		if err != nil {
+			brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
+		}
+		return err
+	})
 	if err != nil {
-		brt.logger.Errorf("[Batch Router] Error occurred while updating %s jobs statuses. Panicking. Err: %v", brt.destType, err)
 		panic(err)
 	}
-
-	brt.jobsDB.CommitTransaction(txn)
-	brt.jobsDB.ReleaseUpdateJobStatusLocks()
 }
 
 func getBRTErrorCode(state string) int {
@@ -1662,7 +1669,7 @@ func (worker *workerT) workerProcess() {
 
 			//Mark the drainList jobs as Aborted
 			if len(drainList) > 0 {
-				err := brt.errorDB.Store(drainJobList)
+				err := brt.errorDB.Append(drainJobList)
 				if err != nil {
 					brt.logger.Errorf("Error occurred while storing %s jobs into ErrorDB. Panicking. Err: %v", brt.destType, err)
 					panic(err)
@@ -2045,7 +2052,7 @@ func (brt *HandleT) dedupRawDataDestJobsOnCrash() {
 func (brt *HandleT) holdFetchingJobs(parameterFilters []jobsdb.ParameterFilterT) bool {
 	var importingList []*jobsdb.JobT
 	if IsAsyncDestination(brt.destType) {
-		importingList = brt.jobsDB.GetImportingList(
+		importingList = brt.jobsDB.GetImporting(
 			jobsdb.GetQueryParamsT{
 				CustomValFilters: []string{brt.destType},
 				JobsLimit:        1,

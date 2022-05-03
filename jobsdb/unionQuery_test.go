@@ -64,7 +64,7 @@ func TestMultiTenantHandleT_GetAllJobs(t *testing.T) {
 	}, 10)
 
 	require.Equal(t, 0, len(unprocessedListEmpty))
-	err := jobDB.Store([]*JobT{&sampleTestJob1, &sampleTestJob2, &sampleTestJob3})
+	err := jobDB.Append([]*JobT{&sampleTestJob1, &sampleTestJob2, &sampleTestJob3})
 	require.NoError(t, err)
 
 	payloadLimit = 100 * bytesize.MB

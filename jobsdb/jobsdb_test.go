@@ -136,7 +136,7 @@ var _ = Describe("Calculate newDSIdx for cluster migrations", func() {
 
 		Entry("ClusterMigration Case 1",
 			[]dataSetT{
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "1",
@@ -150,17 +150,17 @@ var _ = Describe("Calculate newDSIdx for cluster migrations", func() {
 
 		Entry("ClusterMigration Case 2",
 			[]dataSetT{
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "0_1",
 				},
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "1",
 				},
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "2",
@@ -181,7 +181,7 @@ var _ = Describe("Calculate newDSIdx for cluster migrations", func() {
 
 		Entry("ClusterMigration Case 1",
 			[]dataSetT{
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "1_1",
@@ -196,12 +196,12 @@ var _ = Describe("Calculate newDSIdx for cluster migrations", func() {
 
 		Entry("ClusterMigration Case 2",
 			[]dataSetT{
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "1",
 				},
-				dataSetT{
+				{
 					JobTable:       "",
 					JobStatusTable: "",
 					Index:          "1_1",
@@ -251,9 +251,6 @@ var sampleTestJob = JobT{
 	CustomVal:    "MOCKDS",
 }
 
-type tContext struct {
-}
-
 func initJobsDB() {
 	config.Load()
 	logger.Init()
@@ -269,9 +266,6 @@ var _ = Describe("jobsdb", func() {
 	BeforeEach(func() {
 		// setup static requirements of dependencies
 		stats.Setup()
-	})
-
-	AfterEach(func() {
 	})
 
 	Context("getDSList", func() {

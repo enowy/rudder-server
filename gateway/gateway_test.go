@@ -226,7 +226,7 @@ var _ = Describe("Gateway Enterprise", func() {
 		It("should accept events from normal users", func() {
 			allowedUserEventData := fmt.Sprintf("{\"batch\":[{\"userId\": \"%s\"}]}", NormalUserID)
 
-			mockCall := c.mockJobsDB.EXPECT().StoreWithRetryEach(gomock.Any()).DoAndReturn(jobsToEmptyErrors).Times(1)
+			mockCall := c.mockJobsDB.EXPECT().AppendWithRetryEach(gomock.Any()).DoAndReturn(jobsToEmptyErrors).Times(1)
 			tFunc := c.asyncHelper.ExpectAndNotifyCallbackWithName("store-job")
 			mockCall.Do(func(interface{}) { tFunc() })
 
@@ -339,7 +339,7 @@ var _ = Describe("Gateway", func() {
 				validBody := createValidBody("custom-property", "custom-value")
 
 				c.mockJobsDB.
-					EXPECT().StoreWithRetryEach(gomock.Any()).
+					EXPECT().AppendWithRetryEach(gomock.Any()).
 					DoAndReturn(func(jobs []*jobsdb.JobT) map[uuid.UUID]string {
 						for _, job := range jobs {
 							// each call should be included in a separate batch, with a separate batch_id
@@ -393,7 +393,7 @@ var _ = Describe("Gateway", func() {
 			tFunc = c.asyncHelper.ExpectAndNotifyCallbackWithName("")
 			mockCall.Do(func(interface{}) { tFunc() })
 
-			mockCall = c.mockJobsDB.EXPECT().StoreWithRetryEach(gomock.Any()).DoAndReturn(jobsToEmptyErrors).Times(1)
+			mockCall = c.mockJobsDB.EXPECT().AppendWithRetryEach(gomock.Any()).DoAndReturn(jobsToEmptyErrors).Times(1)
 			tFunc = c.asyncHelper.ExpectAndNotifyCallbackWithName("")
 			mockCall.Do(func(interface{}) { tFunc() })
 
@@ -566,7 +566,7 @@ func allHandlers(gateway *HandleT) map[string]http.HandlerFunc {
 	}
 }
 
-// converts a job list to a map of empty errors, to emulate a successful jobsdb.Store response
+// converts a job list to a map of empty errors, to emulate a successful jobsdb.Append response
 func jobsToEmptyErrors(jobs []*jobsdb.JobT) map[uuid.UUID]string {
 	return make(map[uuid.UUID]string)
 }

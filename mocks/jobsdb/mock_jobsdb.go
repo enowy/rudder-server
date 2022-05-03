@@ -37,68 +37,60 @@ func (m *MockJobsDB) EXPECT() *MockJobsDBMockRecorder {
 	return m.recorder
 }
 
-// AcquireStoreLock mocks base method.
-func (m *MockJobsDB) AcquireStoreLock() {
+// Append mocks base method.
+func (m *MockJobsDB) Append(arg0 []*jobsdb.JobT) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AcquireStoreLock")
-}
-
-// AcquireStoreLock indicates an expected call of AcquireStoreLock.
-func (mr *MockJobsDBMockRecorder) AcquireStoreLock() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcquireStoreLock", reflect.TypeOf((*MockJobsDB)(nil).AcquireStoreLock))
-}
-
-// AcquireUpdateJobStatusLocks mocks base method.
-func (m *MockJobsDB) AcquireUpdateJobStatusLocks() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AcquireUpdateJobStatusLocks")
-}
-
-// AcquireUpdateJobStatusLocks indicates an expected call of AcquireUpdateJobStatusLocks.
-func (mr *MockJobsDBMockRecorder) AcquireUpdateJobStatusLocks() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcquireUpdateJobStatusLocks", reflect.TypeOf((*MockJobsDB)(nil).AcquireUpdateJobStatusLocks))
-}
-
-// BeginGlobalTransaction mocks base method.
-func (m *MockJobsDB) BeginGlobalTransaction() *sql.Tx {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BeginGlobalTransaction")
-	ret0, _ := ret[0].(*sql.Tx)
+	ret := m.ctrl.Call(m, "Append", arg0)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// BeginGlobalTransaction indicates an expected call of BeginGlobalTransaction.
-func (mr *MockJobsDBMockRecorder) BeginGlobalTransaction() *gomock.Call {
+// Append indicates an expected call of Append.
+func (mr *MockJobsDBMockRecorder) Append(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginGlobalTransaction", reflect.TypeOf((*MockJobsDB)(nil).BeginGlobalTransaction))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Append", reflect.TypeOf((*MockJobsDB)(nil).Append), arg0)
 }
 
-// CheckPGHealth mocks base method.
-func (m *MockJobsDB) CheckPGHealth() bool {
+// AppendInTx mocks base method.
+func (m *MockJobsDB) AppendInTx(arg0 jobsdb.AppendSafeTx, arg1 []*jobsdb.JobT) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckPGHealth")
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "AppendInTx", arg0, arg1)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CheckPGHealth indicates an expected call of CheckPGHealth.
-func (mr *MockJobsDBMockRecorder) CheckPGHealth() *gomock.Call {
+// AppendInTx indicates an expected call of AppendInTx.
+func (mr *MockJobsDBMockRecorder) AppendInTx(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPGHealth", reflect.TypeOf((*MockJobsDB)(nil).CheckPGHealth))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendInTx", reflect.TypeOf((*MockJobsDB)(nil).AppendInTx), arg0, arg1)
 }
 
-// CommitTransaction mocks base method.
-func (m *MockJobsDB) CommitTransaction(arg0 *sql.Tx) {
+// AppendWithRetryEach mocks base method.
+func (m *MockJobsDB) AppendWithRetryEach(arg0 []*jobsdb.JobT) map[uuid.UUID]string {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CommitTransaction", arg0)
+	ret := m.ctrl.Call(m, "AppendWithRetryEach", arg0)
+	ret0, _ := ret[0].(map[uuid.UUID]string)
+	return ret0
 }
 
-// CommitTransaction indicates an expected call of CommitTransaction.
-func (mr *MockJobsDBMockRecorder) CommitTransaction(arg0 interface{}) *gomock.Call {
+// AppendWithRetryEach indicates an expected call of AppendWithRetryEach.
+func (mr *MockJobsDBMockRecorder) AppendWithRetryEach(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitTransaction", reflect.TypeOf((*MockJobsDB)(nil).CommitTransaction), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendWithRetryEach", reflect.TypeOf((*MockJobsDB)(nil).AppendWithRetryEach), arg0)
+}
+
+// AppendWithRetryEachInTx mocks base method.
+func (m *MockJobsDB) AppendWithRetryEachInTx(arg0 jobsdb.AppendSafeTx, arg1 []*jobsdb.JobT) map[uuid.UUID]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppendWithRetryEachInTx", arg0, arg1)
+	ret0, _ := ret[0].(map[uuid.UUID]string)
+	return ret0
+}
+
+// AppendWithRetryEachInTx indicates an expected call of AppendWithRetryEachInTx.
+func (mr *MockJobsDBMockRecorder) AppendWithRetryEachInTx(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendWithRetryEachInTx", reflect.TypeOf((*MockJobsDB)(nil).AppendWithRetryEachInTx), arg0, arg1)
 }
 
 // DeleteExecuting mocks base method.
@@ -127,32 +119,18 @@ func (mr *MockJobsDBMockRecorder) GetExecuting(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExecuting", reflect.TypeOf((*MockJobsDB)(nil).GetExecuting), arg0)
 }
 
-// GetIdentifier mocks base method.
-func (m *MockJobsDB) GetIdentifier() string {
+// GetImporting mocks base method.
+func (m *MockJobsDB) GetImporting(arg0 jobsdb.GetQueryParamsT) []*jobsdb.JobT {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIdentifier")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetIdentifier indicates an expected call of GetIdentifier.
-func (mr *MockJobsDBMockRecorder) GetIdentifier() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdentifier", reflect.TypeOf((*MockJobsDB)(nil).GetIdentifier))
-}
-
-// GetImportingList mocks base method.
-func (m *MockJobsDB) GetImportingList(arg0 jobsdb.GetQueryParamsT) []*jobsdb.JobT {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImportingList", arg0)
+	ret := m.ctrl.Call(m, "GetImporting", arg0)
 	ret0, _ := ret[0].([]*jobsdb.JobT)
 	return ret0
 }
 
-// GetImportingList indicates an expected call of GetImportingList.
-func (mr *MockJobsDBMockRecorder) GetImportingList(arg0 interface{}) *gomock.Call {
+// GetImporting indicates an expected call of GetImporting.
+func (mr *MockJobsDBMockRecorder) GetImporting(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImportingList", reflect.TypeOf((*MockJobsDB)(nil).GetImportingList), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImporting", reflect.TypeOf((*MockJobsDB)(nil).GetImporting), arg0)
 }
 
 // GetJournalEntries mocks base method.
@@ -237,6 +215,34 @@ func (mr *MockJobsDBMockRecorder) GetWaiting(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWaiting", reflect.TypeOf((*MockJobsDB)(nil).GetWaiting), arg0)
 }
 
+// Identifier mocks base method.
+func (m *MockJobsDB) Identifier() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Identifier")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Identifier indicates an expected call of Identifier.
+func (mr *MockJobsDBMockRecorder) Identifier() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Identifier", reflect.TypeOf((*MockJobsDB)(nil).Identifier))
+}
+
+// IsHealthy mocks base method.
+func (m *MockJobsDB) IsHealthy() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsHealthy")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsHealthy indicates an expected call of IsHealthy.
+func (mr *MockJobsDBMockRecorder) IsHealthy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsHealthy", reflect.TypeOf((*MockJobsDB)(nil).IsHealthy))
+}
+
 // JournalDeleteEntry mocks base method.
 func (m *MockJobsDB) JournalDeleteEntry(arg0 int64) {
 	m.ctrl.T.Helper()
@@ -263,30 +269,6 @@ func (mr *MockJobsDBMockRecorder) JournalMarkStart(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JournalMarkStart", reflect.TypeOf((*MockJobsDB)(nil).JournalMarkStart), arg0, arg1)
 }
 
-// ReleaseStoreLock mocks base method.
-func (m *MockJobsDB) ReleaseStoreLock() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ReleaseStoreLock")
-}
-
-// ReleaseStoreLock indicates an expected call of ReleaseStoreLock.
-func (mr *MockJobsDBMockRecorder) ReleaseStoreLock() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseStoreLock", reflect.TypeOf((*MockJobsDB)(nil).ReleaseStoreLock))
-}
-
-// ReleaseUpdateJobStatusLocks mocks base method.
-func (m *MockJobsDB) ReleaseUpdateJobStatusLocks() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ReleaseUpdateJobStatusLocks")
-}
-
-// ReleaseUpdateJobStatusLocks indicates an expected call of ReleaseUpdateJobStatusLocks.
-func (mr *MockJobsDBMockRecorder) ReleaseUpdateJobStatusLocks() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseUpdateJobStatusLocks", reflect.TypeOf((*MockJobsDB)(nil).ReleaseUpdateJobStatusLocks))
-}
-
 // Status mocks base method.
 func (m *MockJobsDB) Status() interface{} {
 	m.ctrl.T.Helper()
@@ -299,34 +281,6 @@ func (m *MockJobsDB) Status() interface{} {
 func (mr *MockJobsDBMockRecorder) Status() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockJobsDB)(nil).Status))
-}
-
-// Store mocks base method.
-func (m *MockJobsDB) Store(arg0 []*jobsdb.JobT) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Store", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Store indicates an expected call of Store.
-func (mr *MockJobsDBMockRecorder) Store(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockJobsDB)(nil).Store), arg0)
-}
-
-// StoreWithRetryEach mocks base method.
-func (m *MockJobsDB) StoreWithRetryEach(arg0 []*jobsdb.JobT) map[uuid.UUID]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreWithRetryEach", arg0)
-	ret0, _ := ret[0].(map[uuid.UUID]string)
-	return ret0
-}
-
-// StoreWithRetryEach indicates an expected call of StoreWithRetryEach.
-func (mr *MockJobsDBMockRecorder) StoreWithRetryEach(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWithRetryEach", reflect.TypeOf((*MockJobsDB)(nil).StoreWithRetryEach), arg0)
 }
 
 // UpdateJobStatus mocks base method.
@@ -343,16 +297,58 @@ func (mr *MockJobsDBMockRecorder) UpdateJobStatus(arg0, arg1, arg2 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateJobStatus", reflect.TypeOf((*MockJobsDB)(nil).UpdateJobStatus), arg0, arg1, arg2)
 }
 
-// UpdateJobStatusInTxn mocks base method.
-func (m *MockJobsDB) UpdateJobStatusInTxn(arg0 *sql.Tx, arg1 []*jobsdb.JobStatusT, arg2 []string, arg3 []jobsdb.ParameterFilterT) error {
+// UpdateJobStatusInTx mocks base method.
+func (m *MockJobsDB) UpdateJobStatusInTx(arg0 jobsdb.UpdateSafeTx, arg1 []*jobsdb.JobStatusT, arg2 []string, arg3 []jobsdb.ParameterFilterT) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateJobStatusInTxn", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateJobStatusInTx", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateJobStatusInTxn indicates an expected call of UpdateJobStatusInTxn.
-func (mr *MockJobsDBMockRecorder) UpdateJobStatusInTxn(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+// UpdateJobStatusInTx indicates an expected call of UpdateJobStatusInTx.
+func (mr *MockJobsDBMockRecorder) UpdateJobStatusInTx(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateJobStatusInTxn", reflect.TypeOf((*MockJobsDB)(nil).UpdateJobStatusInTxn), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateJobStatusInTx", reflect.TypeOf((*MockJobsDB)(nil).UpdateJobStatusInTx), arg0, arg1, arg2, arg3)
+}
+
+// WithAppendSafeTx mocks base method.
+func (m *MockJobsDB) WithAppendSafeTx(arg0 func(jobsdb.AppendSafeTx) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithAppendSafeTx", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WithAppendSafeTx indicates an expected call of WithAppendSafeTx.
+func (mr *MockJobsDBMockRecorder) WithAppendSafeTx(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAppendSafeTx", reflect.TypeOf((*MockJobsDB)(nil).WithAppendSafeTx), arg0)
+}
+
+// WithTx mocks base method.
+func (m *MockJobsDB) WithTx(arg0 func(*sql.Tx) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTx", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WithTx indicates an expected call of WithTx.
+func (mr *MockJobsDBMockRecorder) WithTx(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTx", reflect.TypeOf((*MockJobsDB)(nil).WithTx), arg0)
+}
+
+// WithUpdateSafeTx mocks base method.
+func (m *MockJobsDB) WithUpdateSafeTx(arg0 func(jobsdb.UpdateSafeTx) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithUpdateSafeTx", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WithUpdateSafeTx indicates an expected call of WithUpdateSafeTx.
+func (mr *MockJobsDBMockRecorder) WithUpdateSafeTx(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithUpdateSafeTx", reflect.TypeOf((*MockJobsDB)(nil).WithUpdateSafeTx), arg0)
 }
