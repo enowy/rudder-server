@@ -1664,10 +1664,6 @@ func (jd *HandleT) dropDS(ds dataSetT) {
 //Drop a dataset and ignore if a table is missing
 func (jd *HandleT) dropDSForRecovery(ds dataSetT) {
 
-	//Doing if exists only if caller explicitly mentions
-	//that its okay for table to be missing. This scenario
-	//happens during recovering from failed migration.
-	//For every other case, the table must exist
 	var sqlStatement string
 	var err error
 	tx, err := jd.dbHandle.Begin()
@@ -1685,8 +1681,6 @@ func (jd *HandleT) dropDSForRecovery(ds dataSetT) {
 	err = tx.Commit()
 	jd.assertError(err)
 
-	// TODO: should we really do all these post-drop stuff during recovery
-	jd.postDropDs(ds)
 }
 
 func (jd *HandleT) postDropDs(ds dataSetT) {
