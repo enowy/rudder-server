@@ -1044,7 +1044,6 @@ func getPayloadSize(t *testing.T, jobsDB jobsdb.JobsDB, job *jobsdb.JobT) (int64
 				break
 			}
 		}
-		_ = tx.Tx().Rollback()
 		return err
 	})
 
